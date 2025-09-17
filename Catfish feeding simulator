@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catfish Feeding Timeline Simulator</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .week { border: 1px solid #ccc; margin: 5px; padding: 10px; cursor: pointer; border-radius:8px; }
+    .details { display: none; margin-top: 10px; }
+    .controls { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Catfish Feeding Timeline Simulator</h1>
+  <div class="controls">
+    <label>Number of fish: <input id="numFish" type="number" value="5000"/></label>
+    <label>Initial average weight (g): <input id="initW" type="number" value="1.96"/></label>
+    <label>Target average weight (g): <input id="targetW" type="number" value="700"/></label>
+    <label>Assumed FCR: <input id="fcr" type="number" step="0.01" value="1.45"/></label>
+    <label>Mortality rate (% over cycle): <input id="mortality" type="number" value="0"/></label>
+    <button onclick="simulate()">Simulate</button>
+  </div>
+  <div id="timeline"></div>
+  <div id="investorTable"></div>
+
+  <script>
+    function feedRate(weight) {
+      if (weight <= 10) return 10;
+      if (weight <= 50) return 8;
+      if (weight <= 150) return 5;
+      if (weight <= 300) return 4;
+      if (weight <= 600) return 3;
+      return 2;
+    }
+
+    function pelletSize(weight) {
+      if (weight <= 10) return '1.2–1.5 mm';
+      if (weight <= 50) return '1.8–2.0 mm';
+      if (weight <= 150) return '2–3 mm';
+      if (weight <= 300) return '3–4 mm';
+      if (weight <= 600) return '4–6 mm';
+      return '6–9 mm';
+    }
+
+    function simulate() {
+      const n = parseInt(document.getElementById('numFish').value);
+      let avgW = parseFloat(document.getElementById('initW').value);
+      const targetW = parseFloat(document.getElementById('targetW').value);
+      const FCR = parseFloat(document.getElementById('fcr').value);
+      const mortalityPct = parseFloat(document.getElementById('mortality').value);
+      const survFactor = 1 - (mortalityPct/100);
+      let fishCount = n;
+
+      let biomass = (avgW * n)/1000.0;
+      let cumFeed = 0;
+      let weeks=0;
+      const timelineDiv = document.getElementById('timeline');
+      timelineDiv.innerHTML = '';
+      let rows = [];
+
+      while (avgW < targetW && weeks < 80) {
+        weeks++;
+        const rate = feedRate(avgW);
+        const dailyFeed = biomass * (rate/100.0);
+        const weeklyFeed = dailyFeed * 7;
+        const gain = weeklyFeed / FCR;
+        cumFeed += weeklyFeed;
+        biomass += gain;
+        avgW = (biomass*1000.0)/fishCount;
+        const pel = pelletSize(avgW);
+
+        // mortality applied gradually per week
+        fishCount = Math.round(n * survFactor ** (weeks/ (weeks||1)));
+        biomass = avgW*fishCount/1000.0;
+
+        const div = document.createElement('div');
+        div.className='week';
+        div.innerHTML = `<strong>Week ${weeks}</strong> – Avg ${avgW.toFixed(1)} g, Biomass ${biomass.toFixed(1)} kg`;
+        const det = document.createElement('div');
+        det.className='details';
+        det.innerHTML = `Feed rate: ${rate}% BW/day<br>Daily feed: ${dailyFeed.toFixed(2)} kg<br>Weekly feed: ${weeklyFeed.toFixed(2)} kg<br>Cumulative feed: ${cumFeed.toFixed(1)} kg<br>Pellet: ${pel}<br>Surviving fish: ${fishCount}`;
+        div.onclick=()=>{det.style.display=(det.style.display==='none'?'block':'none');};
+        div.appendChild(det);
+        timelineDiv.appendChild(div);
+
+        rows.push({week:weeks, avgW:avgW.toFixed(1), biomass:biomass.toFixed(1), daily:dailyFeed.toFixed(2), weekly:weeklyFeed.toFixed(2), cum:cumFeed.toFixed(1), pellet:pel, fish:fishCount});
+      }
+
+      // Investor-ready summary table
+      let html = '<h2>Investor-Ready Feeding Schedule</h2><table border="1" cellpadding="5" cellspacing="0"><tr><th>Week</th><th>Avg W (g)</th><th>Biomass (kg)</th><th>Daily Feed (kg)</th><th>Weekly Feed (kg)</th><th>Cumulative Feed (kg)</th><th>Pellet Size</th><th>Fish Count</th></tr>';
+      rows.forEach(r=>{
+        html += `<tr><td>${r.week}</td><td>${r.avgW}</td><td>${r.biomass}</td><td>${r.daily}</td><td>${r.weekly}</td><td>${r.cum}</td><td>${r.pellet}</td><td>${r.fish}</td></tr>`;
+      });
+      html+='</table>';
+      document.getElementById('investorTable').innerHTML=html;
+    }
+  </script>
+</body>
+</html>
